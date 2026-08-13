@@ -207,7 +207,8 @@ def register():
             flash("Registration successful. Please log in.", "success")
             return redirect(url_for("login"))
         except Exception as e:
-            flash("Email already exists or error occurred.", "danger")
+            print("REGISTRATION ERROR:", str(e))
+            flash(f"Error: {str(e)}", "danger")
             
     return render_template("register.html")
 
