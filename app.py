@@ -65,7 +65,8 @@ def load_user(user_id):
 def init_history():
     create_table_sql = f"""
     CREATE TABLE IF NOT EXISTS {HISTORY_TABLE} (
-        id INT AUTO_INCREMENT PRIMARY KEY,
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER,
         nl_query TEXT NOT NULL,
         sql_query TEXT NOT NULL,
         status VARCHAR(20) NOT NULL,
@@ -83,17 +84,21 @@ def init_history():
     with engine.begin() as conn:
         conn.execute(text(create_table_sql))
         conn.execute(text(create_formulas_sql))
+        try:
+            conn.execute(text(f"ALTER TABLE {HISTORY_TABLE} ADD COLUMN user_id INTEGER"))
+        except Exception:
+            pass
 
 init_history()
 
 
-def save_history(nlq: str, sqlq: str, status: str):
+def save_history(nlq: str, sqlq: str, status: str, user_id: int = None):
     insert_sql = text(f"""
-        INSERT INTO {HISTORY_TABLE} (nl_query, sql_query, status)
-        VALUES (:nlq, :sqlq, :status)
+        INSERT INTO {HISTORY_TABLE} (user_id, nl_query, sql_query, status)
+        VALUES (:uid, :nlq, :sqlq, :status)
     """)
     with engine.begin() as conn:
-        conn.execute(insert_sql, {"nlq": nlq, "sqlq": sqlq, "status": status})
+        conn.execute(insert_sql, {"uid": user_id, "nlq": nlq, "sqlq": sqlq, "status": status})
 
 # HELPERS
 def format_named_params(sql: str):
@@ -370,7 +375,7 @@ def run_query():
             
     if all_results:
         combined_sql = "\nUNION ALL\n".join(all_sqls)
-        save_history(nl_query, combined_sql, "OK")
+        save_history(nl_query, combined_sql, "OK", current_user.id)
         return render_template(
             "query.html",
             results=all_results,
@@ -383,7 +388,7 @@ def run_query():
         )
     else:
         err_msg = " | ".join(errors) if errors else "No results found in any of the selected tables."
-        save_history(nl_query, err_msg, "FAILED" if errors else "OK")
+        save_history(nl_query, err_msg, "FAILED" if errors else "OK", current_user.id)
         return render_template(
             "query.html",
             results=[],
@@ -400,8 +405,9 @@ def run_query():
 def history():
     with engine.connect() as conn:
         df = pd.read_sql_query(
-            f"SELECT * FROM {HISTORY_TABLE} ORDER BY id DESC LIMIT 200",
-            conn
+            f"SELECT * FROM {HISTORY_TABLE} WHERE user_id = :uid ORDER BY id DESC LIMIT 200",
+            conn,
+            params={"uid": current_user.id}
         )
     return render_template("history.html", rows=df.to_dict(orient="records"))
 
@@ -470,10 +476,6 @@ def manager():
             
             if not table_name:
                 flash("Invalid table name.", "danger")
-                return redirect(url_for("manager"))
-                
-            if table_name in ['students', 'employees']:
-                flash("Cannot delete built-in sample tables.", "danger")
                 return redirect(url_for("manager"))
                 
             schema = get_live_schema(engine, current_user.id)
