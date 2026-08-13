@@ -1,0 +1,44 @@
+# Core Web Framework
+Flask
+Werkzeug
+Jinja2
+
+# Data Processing
+pandas
+numpy
+
+# Database
+SQLAlchemy
+PyMySQL
+sqlglot
+
+# NLP / ML
+scikit-learn
+joblib
+
+# Transformers (Meaning Extraction Model)
+transformers
+torch
+accelerate
+datasets
+sentencepiece
+
+# Text Matching / Fuzzy Matching
+rapidfuzz
+
+# Tokenization
+nltk==3.9
+
+# Utilities
+python-dotenv==1.0.1
+tqdm==4.66.4
+
+# Optional
+watchdog==4.0.1
+
+# Authentication & Security
+Flask-Login
+Flask-Bcrypt
+
+# AI & LLM
+google-generativeai

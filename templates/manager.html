@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+{% block content %}
+<div x-data="{ view: 'list' }">
+    <div class="mb-8 flex justify-between items-center">
+        <div>
+            <h1 class="text-3xl font-bold text-gray-900 tracking-tight">Data Manager</h1>
+            <p class="text-gray-500 mt-1 text-lg">Create custom tables and insert data dynamically.</p>
+        </div>
+        <div>
+            <button x-show="view == 'list'" @click="view = 'create'" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors shadow-sm flex items-center gap-2">
+                <i class="fas fa-plus"></i> Create Table
+            </button>
+            <button x-show="view == 'create'" @click="view = 'list'" style="display: none;" class="bg-white hover:bg-gray-50 text-gray-700 border border-gray-200 px-4 py-2 rounded-lg font-medium transition-colors shadow-sm flex items-center gap-2">
+                <i class="fas fa-arrow-left"></i> Back to Tables
+            </button>
+        </div>
+    </div>
+
+    <!-- LIST VIEW -->
+    <div x-show="view == 'list'" class="space-y-6">
+        {% if schema %}
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {% for table_name, table_data in schema.items() %}
+                <div class="block bg-white rounded-xl shadow-sm border border-gray-200 hover:shadow-md hover:border-blue-400 transition-all group overflow-hidden">
+                    <a href="{{ url_for('view_table', table=table_name) }}" class="bg-gray-50 px-6 py-4 border-b flex justify-between items-center group-hover:bg-blue-50 transition-colors block">
+                        <h3 class="font-bold text-lg text-gray-800 group-hover:text-blue-800 transition-colors">
+                            {{ table_name.replace('u' ~ current_user_id ~ '_', '') if table_name.startswith('u' ~ current_user_id ~ '_') else table_name }}
+                        </h3>
+                        {% if table_name in ['employees', 'students'] %}
+                        <span class="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded">Sample</span>
+                        {% else %}
+                        <i class="fas fa-chevron-right text-gray-400 group-hover:text-blue-500 transition-colors"></i>
+                        {% endif %}
+                    </a>
+                    
+                    <div class="p-6">
+                        <p class="text-sm text-gray-500 mb-3"><i class="fas fa-columns mr-2"></i>{{ table_data.columns | length }} Columns</p>
+                        <div class="flex flex-wrap gap-2">
+                            {% for col in table_data.columns[:4] %}
+                            <span class="inline-block bg-slate-100 text-slate-600 text-xs px-2 py-1 rounded">
+                                {{ col }}
+                            </span>
+                            {% endfor %}
+                            {% if table_data.columns|length > 4 %}
+                            <span class="inline-block bg-slate-100 text-slate-500 text-xs px-2 py-1 rounded">...</span>
+                            {% endif %}
+                        </div>
+                        
+                        {% if table_name not in ['employees', 'students'] %}
+                        <div class="flex justify-end gap-2 mt-5 pt-4 border-t border-gray-100">
+                            <form method="POST" action="{{ url_for('manager') }}" class="inline m-0">
+                                <input type="hidden" name="action" value="rename_table">
+                                <input type="hidden" name="old_table_name" value="{{ table_name }}">
+                                <input type="hidden" name="new_table_name" class="rename-input" value="">
+                                <button type="button" onclick="const nn = prompt('Enter new table name:'); if(nn) { this.previousElementSibling.value = nn; this.parentElement.submit(); }" class="text-xs font-medium text-blue-600 hover:text-blue-800 bg-blue-50 px-3 py-1.5 rounded transition-colors flex items-center">
+                                    <i class="fas fa-edit mr-1.5"></i> Rename
+                                </button>
+                            </form>
+                            <form method="POST" action="{{ url_for('manager') }}" class="inline m-0" onsubmit="return confirm('Are you sure you want to permanently delete this table?');">
+                                <input type="hidden" name="action" value="delete_table">
+                                <input type="hidden" name="table_name" value="{{ table_name }}">
+                                <button type="submit" class="text-xs font-medium text-red-600 hover:text-red-800 bg-red-50 px-3 py-1.5 rounded transition-colors flex items-center">
+                                    <i class="fas fa-trash mr-1.5"></i> Delete
+                                </button>
+                            </form>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            {% endfor %}
+            </div>
+        {% else %}
+            <div class="bg-yellow-50 border border-yellow-200 text-yellow-800 p-6 rounded-xl">
+                You haven't created any custom tables yet. Click "Create Table" to get started!
+            </div>
+        {% endif %}
+    </div>
+
+    <!-- CREATE VIEW -->
+    <div x-show="view == 'create'" style="display: none;" class="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <!-- Left Column: Create Table -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <h2 class="text-xl font-bold text-gray-800 mb-4 border-b pb-2">Create New Table</h2>
+            <form method="POST" action="{{ url_for('manager') }}" class="space-y-4" x-data="{ columns: [''] }">
+                <input type="hidden" name="action" value="create_table">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Table Name</label>
+                    <input type="text" name="table_name" placeholder="e.g. sales_data" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Columns</label>
+                    <p class="text-xs text-gray-500 mb-2 italic">Note: An 'id' column is automatically generated.</p>
+                    
+                    <div class="space-y-2">
+                        <template x-for="(col, index) in columns" :key="index">
+                            <div class="flex gap-2 items-center">
+                                <input type="text" name="columns[]" x-model="columns[index]" placeholder="e.g. item_name" required class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                <button type="button" @click="columns.splice(index, 1)" x-show="columns.length > 1" class="text-red-500 hover:text-red-700 p-2 rounded-lg hover:bg-red-50 transition-colors">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </template>
+                    </div>
+                    
+                    <button type="button" @click="columns.push('')" class="mt-3 text-sm text-blue-600 hover:text-blue-800 font-medium flex items-center transition-colors">
+                        <i class="fas fa-plus mr-1"></i> Add Column
+                    </button>
+                </div>
+                <button type="submit" class="w-full bg-slate-800 hover:bg-slate-900 text-white font-medium py-2 rounded-lg transition-colors mt-2 shadow-sm">
+                    Create Table
+                </button>
+            </form>
+        </div>
+
+        <!-- Right Column: Upload -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <h2 class="text-xl font-bold text-gray-800 mb-4 border-b pb-2">Upload Excel / CSV</h2>
+            <p class="text-sm text-gray-600 mb-4">Auto-generate a table from an uploaded file. The filename becomes the table name.</p>
+            <form method="POST" action="{{ url_for('upload_file') }}" enctype="multipart/form-data" class="space-y-4">
+                <div class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:bg-gray-50 transition-colors">
+                    <i class="fas fa-file-excel text-3xl text-green-600 mb-2"></i>
+                    <input type="file" name="file" accept=".csv, .xlsx, .xls" required class="block w-full text-sm text-gray-500
+                        file:mr-4 file:py-2 file:px-4
+                        file:rounded-full file:border-0
+                        file:text-sm file:font-semibold
+                        file:bg-green-50 file:text-green-700
+                        hover:file:bg-green-100
+                        cursor-pointer
+                        ">
+                </div>
+                <button type="submit" class="w-full bg-green-600 hover:bg-green-700 text-white font-medium py-2 rounded-lg transition-colors">
+                    Upload & Process
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

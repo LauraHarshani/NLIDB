@@ -1,0 +1,8 @@
+[
+  {"table_name":"students","nl_question":"all student names","sql_query":"SELECT name FROM students","tags":["students","list","names"]},
+  {"table_name":"students","nl_question":"show students with marks above 80","sql_query":"SELECT id, name, joined_year, marks FROM students WHERE marks > 80","tags":["students","filter","marks"]},
+  {"table_name":"students","nl_question":"count students who joined after 2020","sql_query":"SELECT COUNT(*) AS total FROM students WHERE joined_year > 2020","tags":["students","count","year"]},
+  {"table_name":"students","nl_question":"top 3 students by marks","sql_query":"SELECT id, name, joined_year, marks FROM students ORDER BY marks DESC LIMIT 3","tags":["students","top","marks"]},
+  {"table_name":"employees","nl_question":"list all employees in marketing department","sql_query":"SELECT id, name, department, start_year, salary FROM employees WHERE department LIKE '%marketing%'","tags":["employees","filter","department"]},
+  {"table_name":"employees","nl_question":"top 5 employees by salary","sql_query":"SELECT id, name, department, start_year, salary FROM employees ORDER BY salary DESC LIMIT 5","tags":["employees","top","salary"]}
+]

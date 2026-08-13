@@ -1,0 +1,19 @@
+# Ignore Python virtual environments
+venv/
+path/to/venv/
+
+# Ignore model weights and checkpoints
+models/
+
+# IDE and OS files
+.idea/
+.DS_Store
+
+# Ignore Python cache files
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Ignore logs and runtime files
+*.log
+*.tmp

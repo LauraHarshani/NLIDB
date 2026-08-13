@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="max-w-6xl mx-auto">
+    <div class="mb-8">
+        <h1 class="text-3xl font-bold text-gray-900 tracking-tight">Query History</h1>
+        <p class="text-gray-500 mt-1 text-lg">Review your past natural language queries and generated SQL.</p>
+    </div>
+
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+        
+        <!-- Search Bar -->
+        <div class="px-6 py-4 bg-gray-50 border-b border-gray-200 flex justify-between items-center">
+            <h2 class="text-sm font-semibold text-gray-700">Past Queries</h2>
+            <div class="relative">
+                <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                <input type="text" id="searchInput" onkeyup="filterHistory()" placeholder="Search queries or SQL..." class="pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 w-72">
+            </div>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table id="historyTable" class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="bg-gray-50 border-b border-gray-200">
+                        <th class="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">ID</th>
+                        <th class="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Natural Query</th>
+                        <th class="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">SQL</th>
+                        <th class="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Status</th>
+                        <th class="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Time</th>
+                        <th class="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Action</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    {% for r in rows %}
+                    <tr class="hover:bg-gray-50 transition-colors group">
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ loop.index }}</td>
+                        <td class="px-6 py-4 text-sm text-gray-800 font-semibold">{{ r["nl_query"] }}</td>
+                        <td class="px-6 py-4 text-sm max-w-md">
+                            <code class="block bg-slate-50 text-slate-700 p-3 rounded-lg border border-slate-200 font-mono text-xs overflow-x-auto whitespace-pre-wrap">{{ r["sql_query"] }}</code>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm">
+                            {% if r["status"] == 'OK' %}
+                            <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                <i class="fas fa-check-circle mr-1.5"></i> Success
+                            </span>
+                            {% else %}
+                            <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                <i class="fas fa-exclamation-circle mr-1.5"></i> Failed
+                            </span>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ r["created_at"] }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-right">
+                            <form action="{{ url_for('run_query') }}" method="POST">
+                                <input type="hidden" name="nl_query" value="{{ r['nl_query'] }}">
+                                <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition-colors shadow-sm flex items-center gap-1">
+                                    <i class="fas fa-play"></i> View Result
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="6" class="px-6 py-12 text-center text-gray-500">
+                            <div class="flex flex-col items-center justify-center">
+                                <i class="fas fa-history text-4xl text-gray-300 mb-4"></i>
+                                <p class="text-lg font-medium text-gray-900">No queries yet</p>
+                                <p class="text-sm mt-1">Your query history will appear here once you start asking questions.</p>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+function filterHistory() {
+    let input = document.getElementById("searchInput");
+    let filter = input.value.toLowerCase();
+    let table = document.getElementById("historyTable");
+    let tr = table.getElementsByTagName("tr");
+
+    for (let i = 1; i < tr.length; i++) {
+        let tdQuery = tr[i].getElementsByTagName("td")[1];
+        let tdSQL = tr[i].getElementsByTagName("td")[2];
+        
+        if (tdQuery && tdSQL) {
+            let txtValueQuery = tdQuery.textContent || tdQuery.innerText;
+            let txtValueSQL = tdSQL.textContent || tdSQL.innerText;
+            if (txtValueQuery.toLowerCase().indexOf(filter) > -1 || txtValueSQL.toLowerCase().indexOf(filter) > -1) {
+                tr[i].style.display = "";
+            } else {
+                tr[i].style.display = "none";
+            }
+        }       
+    }
+}
+</script>
+{% endblock %}

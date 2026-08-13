@@ -1,0 +1,15 @@
+{
+  "students": [
+    {"column_name":"id","data_type":"int","description":"Student ID","synonyms":["student id","roll id"]},
+    {"column_name":"name","data_type":"varchar","description":"Student full name","synonyms":["student name","full name"]},
+    {"column_name":"joined_year","data_type":"int","description":"Year student joined/admitted","synonyms":["admission year","joined year","enrolled year"]},
+    {"column_name":"marks","data_type":"double","description":"Student marks/score","synonyms":["marks","score","grade","result"]}
+  ],
+  "employees": [
+    {"column_name":"id","data_type":"int","description":"Employee ID","synonyms":["employee id","staff id"]},
+    {"column_name":"name","data_type":"varchar","description":"Employee full name","synonyms":["employee name","full name"]},
+    {"column_name":"department","data_type":"varchar","description":"Department/team name","synonyms":["department","team","division"]},
+    {"column_name":"start_year","data_type":"int","description":"Year employee started","synonyms":["start year","joined year","hired year"]},
+    {"column_name":"salary","data_type":"double","description":"Employee salary","synonyms":["salary","pay","wage"]}
+  ]
+}

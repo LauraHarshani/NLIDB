@@ -1,0 +1,57 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <title>NLIDB Prototype</title>
+  <link rel="stylesheet" href="/static/styles.css"/>
+</head>
+<body>
+  <div class="container">
+    <h1>Natural Language → SQL (Flask Prototype)</h1>
+
+    <form method="POST" action="/query" class="card">
+      <label>Ask your database (English):</label>
+      <input name="nl_query" value="{{ nl_query }}" placeholder="e.g., List all students who joined after 2020 and scored above 75" />
+      <button type="submit">Run</button>
+      <div class="actions">
+        <a href="/history">View History</a>
+        <a href="/export/csv">Export CSV</a>
+      </div>
+    </form>
+
+    {% if error %}
+      <div class="error">{{ error }}</div>
+    {% endif %}
+
+    {% if sql %}
+      <div class="card">
+        <h3>Generated SQL</h3>
+        <pre>{{ sql }}</pre>
+        <p class="muted">{{ explanation }}</p>
+      </div>
+    {% endif %}
+
+    {% if result %}
+      <div class="card">
+        <h3>Results</h3>
+        <table>
+          <thead>
+            <tr>
+              {% for c in columns %}<th>{{ c }}</th>{% endfor %}
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in result %}
+              <tr>
+                {% for c in columns %}
+                  <td>{{ row[c] }}</td>
+                {% endfor %}
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% endif %}
+  </div>
+</body>
+</html>

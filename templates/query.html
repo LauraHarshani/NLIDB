@@ -1,0 +1,427 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="max-w-4xl mx-auto">
+    <div class="mb-10 text-center">
+        <h1 class="text-4xl font-bold text-gray-900 tracking-tight mb-3">Ask NLIDB</h1>
+        <p class="text-gray-500 text-lg">Query your data using plain English.</p>
+    </div>
+
+    <!-- AI Query Interface -->
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-8 mb-8">
+        <form method="POST" action="{{ url_for('run_query') }}" class="flex flex-col md:flex-row gap-4" x-data="{ loading: false }" @submit="loading = true">
+            <div class="flex flex-col md:flex-row gap-4 w-full">
+                <div class="relative flex-grow">
+                    <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                        <i class="fas fa-search text-gray-400"></i>
+                    </div>
+                    <input type="text" name="nl_query" placeholder="e.g. Show me all employees in marketing..." class="w-full pl-12 pr-4 py-4 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white transition-all text-lg" required value="{{ nl_query }}">
+                </div>
+                
+                <div class="w-full md:w-64" wire:ignore>
+                    <select id="target_tables_select" name="target_tables" multiple class="w-full text-lg text-gray-700 cursor-pointer" placeholder="All Tables (Default)" autocomplete="off">
+                        {% for t in tables %}
+                            {% set display_t = t.split("_", 1)[1] if "_" in t else t %}
+                            <option value="{{ t }}" {% if t in target_tables %}selected{% endif %}>{{ display_t|capitalize }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-xl font-medium transition-colors shadow-sm flex items-center justify-center gap-2 text-lg disabled:opacity-70 disabled:cursor-not-allowed" x-bind:disabled="loading">
+                    <span x-show="!loading" class="flex items-center gap-2"><i class="fas fa-magic"></i> Analyze</span>
+                    <span x-show="loading" class="flex items-center gap-2"><i class="fas fa-spinner fa-spin"></i> Analyzing...</span>
+                </button>
+            </div>
+        </form>
+    </div>
+
+    {% if not results and not error and not sql %}
+    <!-- Manual / How to use -->
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
+        <h2 class="text-xl font-bold text-gray-800 mb-4 flex items-center gap-3"><i class="fas fa-book-open text-blue-500"></i> How to use this</h2>
+        <p class="text-gray-600 mb-6 leading-relaxed">Simply type your question in plain English. NLIDB understands the tables and columns you have created in the Data Manager, and translates your question into a database query automatically.</p>
+        
+        <h3 class="font-semibold text-gray-700 mb-4 text-sm uppercase tracking-wider">Example Questions</h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="bg-gray-50 p-4 rounded-xl border border-gray-100 hover:border-blue-300 hover:shadow-sm transition-all cursor-default">
+                <p class="text-sm font-medium text-gray-800">"Show me the top 5 highest paid employees"</p>
+            </div>
+            <div class="bg-gray-50 p-4 rounded-xl border border-gray-100 hover:border-blue-300 hover:shadow-sm transition-all cursor-default">
+                <p class="text-sm font-medium text-gray-800">"Count how many students are in the biology department"</p>
+            </div>
+            <div class="bg-gray-50 p-4 rounded-xl border border-gray-100 hover:border-blue-300 hover:shadow-sm transition-all cursor-default">
+                <p class="text-sm font-medium text-gray-800">"List all sales from last month ordered by amount"</p>
+            </div>
+            <div class="bg-gray-50 p-4 rounded-xl border border-gray-100 hover:border-blue-300 hover:shadow-sm transition-all cursor-default">
+                <p class="text-sm font-medium text-gray-800">"What is the average age of the users?"</p>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Results Area -->
+    {% if error %}
+    <div class="bg-red-50 border border-red-200 text-red-700 p-4 rounded-lg mb-8">
+        <h3 class="font-bold"><i class="fas fa-exclamation-circle mr-2"></i>Error Generating Query</h3>
+        <p class="mt-1">{{ error }}</p>
+    </div>
+    {% endif %}
+
+    {% if results %}
+    <div class="flex justify-end mb-4">
+        <div class="flex gap-4">
+            <a href="{{ url_for('export_csv') }}" class="text-sm text-blue-600 hover:text-blue-800 font-medium flex items-center bg-white px-3 py-1 rounded-md shadow-sm border border-blue-200"><i class="fas fa-download mr-1"></i> Export All CSV</a>
+            <button onclick="exportPDF()" class="text-sm text-red-600 hover:text-red-800 font-medium flex items-center bg-white px-3 py-1 rounded-md shadow-sm border border-red-200"><i class="fas fa-file-pdf mr-1"></i> Export All PDF</button>
+        </div>
+    </div>
+
+    {% for res in results %}
+    <!-- RESULT DATA / HIGHLIGHT BOX -->
+    <div class="bg-white rounded-xl shadow-lg border-2 border-blue-100 overflow-hidden mb-8 transform transition-all">
+        
+        <div class="px-6 py-4 bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-100 flex justify-between items-center">
+            <h3 class="font-bold text-blue-900 text-lg"><i class="fas fa-check-circle text-blue-500 mr-2"></i>Results for Table: {{ res.table_name|capitalize }}</h3>
+        </div>
+
+        <!-- Auto Chart Area -->
+        <div id="chartContainer_{{ loop.index }}" class="p-6 border-b border-gray-100 hidden bg-white">
+            <canvas id="resultsChart_{{ loop.index }}" style="max-height: 300px;"></canvas>
+        </div>
+
+        <div class="overflow-x-auto bg-white">
+            <table id="resultsTable_{{ loop.index }}" class="w-full text-left border-collapse pdf-target-table">
+                <thead>
+                    <tr class="bg-gray-50/50">
+                        {% for col in res.columns %}
+                        <th class="px-6 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider border-b border-gray-200">{{ col }}</th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    {% for row in res.data %}
+                    <tr class="hover:bg-blue-50/30 transition-colors">
+                        {% for col in res.columns %}
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-800" data-col="{{ col | lower }}">{{ row[col] }}</td>
+                        {% endfor %}
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="{{ res.columns|length }}" class="px-6 py-8 text-center text-gray-500 italic">No results found for your query.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    {% if sql %}
+    <!-- OTHER / TECHNICAL DETAILS -->
+    <details class="bg-slate-50 border border-slate-200 rounded-xl mb-8 group cursor-pointer overflow-hidden shadow-sm hover:shadow transition-shadow">
+        <summary class="px-5 py-4 font-semibold text-slate-700 flex justify-between items-center select-none bg-slate-100/50">
+            <span><i class="fas fa-code mr-2 text-slate-400"></i>Technical Details (SQL & AI)</span>
+            <span class="text-slate-400 group-open:rotate-180 transition-transform duration-200"><i class="fas fa-chevron-down"></i></span>
+        </summary>
+        
+        <div class="p-5 border-t border-slate-200 cursor-auto">
+            <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Generated SQL</h3>
+            <code class="text-blue-800 font-mono block overflow-x-auto bg-white p-4 rounded-lg border border-slate-200 text-sm shadow-inner mb-4">{{ sql }}</code>
+            
+            {% if explanation %}
+            <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 mt-4">AI Reasoning</h3>
+            <div class="text-sm bg-indigo-50/50 text-indigo-700 p-4 rounded-lg border border-indigo-100 leading-relaxed">
+                {{ explanation }}
+            </div>
+            {% endif %}
+        </div>
+    </details>
+    {% endif %}
+    {% if results %}
+    <!-- Scripts for PDF and Charting -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
+    {% endif %}
+
+    <!-- Tom Select for beautiful dropdown -->
+    <link href="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/css/tom-select.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/js/tom-select.complete.min.js"></script>
+    <style>
+        .ts-control {
+            border-radius: 0.75rem !important; /* Tailwind rounded-xl */
+            border-color: #e5e7eb !important; /* border-gray-200 */
+            padding: 0.75rem 1rem !important;
+            background-color: #f9fafb !important; /* bg-gray-50 */
+            min-height: 60px;
+            display: flex;
+            align-items: center;
+        }
+        .ts-control.focus {
+            box-shadow: 0 0 0 2px #3b82f6 !important; /* focus:ring-blue-500 */
+            border-color: #3b82f6 !important;
+            background-color: #ffffff !important;
+        }
+        .ts-dropdown {
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            border: 1px solid #e5e7eb;
+        }
+    </style>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            // Initialize Tom Select
+            new TomSelect("#target_tables_select",{
+                plugins: ['remove_button'],
+                persist: false,
+                create: false,
+                maxOptions: 50,
+            });
+        });
+    </script>
+    <script>
+        // PDF Export Logic
+        function exportPDF() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            doc.text("Query Results", 14, 15);
+            doc.setFontSize(10);
+            doc.text("Generated by NLIDB", 14, 22);
+            
+            let currentY = 30;
+            const tables = document.querySelectorAll('.pdf-target-table');
+            
+            tables.forEach((table, index) => {
+                doc.autoTable({ 
+                    html: table,
+                    startY: currentY,
+                    theme: 'grid',
+                    headStyles: { fillColor: [37, 99, 235] } // Tailwind blue-600
+                });
+                currentY = doc.lastAutoTable.finalY + 15;
+            });
+
+            doc.save('query_results.pdf');
+        }
+
+        // Auto-Charting Logic
+        document.addEventListener("DOMContentLoaded", function() {
+            const results = {{ results | default([]) | tojson | safe }};
+            const queryTokens = `{{ nl_query | default('') | lower }}`.match(/\b\w+\b/g) || [];
+            
+            if (results.length === 0) return;
+
+            results.forEach((res, index) => {
+                const data = res.data;
+                const columns = res.columns;
+                const chartData = (res.full_data && res.full_data.length > 0) ? res.full_data : data;
+                
+                if (chartData.length <= 1 || columns.length < 2) return;
+
+                let numericCols = [];
+                let categoryCol = null;
+
+                // 1. Try to find all numeric columns mentioned in the query
+                for (const col of columns) {
+                    const val = data[0][col];
+                    if (!isNaN(parseFloat(val)) && isFinite(val)) {
+                        if (queryTokens.includes(col.toLowerCase())) {
+                            numericCols.push(col);
+                        }
+                    }
+                }
+
+                // 2. Fallback: try to find a numeric column that is NOT 'id'
+                if (numericCols.length === 0) {
+                    for (const col of columns) {
+                        const val = data[0][col];
+                        if (!isNaN(parseFloat(val)) && isFinite(val) && col.toLowerCase() !== 'id') {
+                            numericCols.push(col);
+                            break;
+                        }
+                    }
+                }
+
+                // 3. Last resort: any numeric column
+                if (numericCols.length === 0) {
+                    for (const col of columns) {
+                        const val = data[0][col];
+                        if (!isNaN(parseFloat(val)) && isFinite(val)) {
+                            numericCols.push(col);
+                            break;
+                        }
+                    }
+                }
+
+                // Category column (prefer 'name' or 'source table')
+                for (const col of columns) {
+                    if (col.toLowerCase() === 'name') {
+                        categoryCol = col;
+                        break;
+                    }
+                }
+                if (!categoryCol) {
+                    for (const col of columns) {
+                        const val = data[0][col];
+                        if (isNaN(parseFloat(val)) || !isFinite(val)) {
+                            categoryCol = col;
+                            break;
+                        }
+                    }
+                }
+                if (!categoryCol) categoryCol = columns[0];
+
+                if (numericCols.length > 0 && categoryCol) {
+                    const containerId = 'chartContainer_' + (index + 1);
+                    const canvasId = 'resultsChart_' + (index + 1);
+                    
+                    document.getElementById(containerId).classList.remove('hidden');
+                    
+                    const labels = chartData.map(row => row[categoryCol]);
+                    
+                    const colorPalette = [
+                        { bg: 'rgba(59, 130, 246, 0.7)', border: 'rgba(37, 99, 235, 1)' }, // Blue
+                        { bg: 'rgba(16, 185, 129, 0.7)', border: 'rgba(5, 150, 105, 1)' }, // Green
+                        { bg: 'rgba(139, 92, 246, 0.7)', border: 'rgba(109, 40, 217, 1)' }, // Purple
+                        { bg: 'rgba(245, 158, 11, 0.7)', border: 'rgba(217, 119, 6, 1)' }, // Amber
+                        { bg: 'rgba(236, 72, 153, 0.7)', border: 'rgba(219, 39, 119, 1)' } // Pink
+                    ];
+
+                    const isFullyFiltered = (data.length === chartData.length);
+                    const filteredCategories = data.map(row => String(row[categoryCol]).toLowerCase());
+                    
+                    const datasets = numericCols.map((col, i) => {
+                        const values = chartData.map(row => parseFloat(row[col]));
+                        const color = colorPalette[i % colorPalette.length];
+                        
+                        const bgColors = chartData.map(row => {
+                            const cat = String(row[categoryCol]).toLowerCase();
+                            let highlight = false;
+                            if (queryTokens.includes(cat)) highlight = true;
+                            if (!isFullyFiltered && filteredCategories.includes(cat)) highlight = true;
+                            
+                            if (numericCols.length === 1) {
+                                return highlight ? 'rgba(239, 68, 68, 0.9)' : 'rgba(59, 130, 246, 0.4)';
+                            } else {
+                                return highlight ? color.border : color.bg;
+                            }
+                        });
+
+                        const borderColors = chartData.map(row => {
+                            const cat = String(row[categoryCol]).toLowerCase();
+                            let highlight = false;
+                            if (queryTokens.includes(cat)) highlight = true;
+                            if (!isFullyFiltered && filteredCategories.includes(cat)) highlight = true;
+                            
+                            if (numericCols.length === 1) {
+                                return highlight ? 'rgba(220, 38, 38, 1)' : 'rgba(37, 99, 235, 0.8)';
+                            } else {
+                                return color.border;
+                            }
+                        });
+                        
+                        return {
+                            label: col.toUpperCase(),
+                            data: values,
+                            backgroundColor: bgColors,
+                            borderColor: borderColors,
+                            borderWidth: 1,
+                            borderRadius: 4
+                        };
+                    });
+                    
+                    // Smart Table Cell Highlighting using Proximity
+                    const rawQuery = `{{ nl_query | default('') | lower }}`;
+                    const tableBody = document.querySelector(`#resultsTable_${index + 1} tbody`);
+                    
+                    if (tableBody) {
+                        const rows = tableBody.querySelectorAll('tr');
+                        const hasAnyName = chartData.some(r => queryTokens.includes(String(r[categoryCol]).toLowerCase()));
+
+                        rows.forEach((tr, rowIndex) => {
+                            if (rowIndex < chartData.length) {
+                                const rowName = String(chartData[rowIndex][categoryCol]).toLowerCase();
+                                
+                                // 1. Proximity Cell Highlighting
+                                if (queryTokens.includes(rowName)) {
+                                    let closestCol = null;
+                                    let minDistance = Infinity;
+                                    const nameIndex = rawQuery.indexOf(rowName);
+                                    
+                                    if (nameIndex !== -1) {
+                                        numericCols.forEach(col => {
+                                            const colIndex = rawQuery.indexOf(col.toLowerCase());
+                                            if (colIndex !== -1) {
+                                                const distance = Math.abs(colIndex - nameIndex);
+                                                if (distance < minDistance) {
+                                                    minDistance = distance;
+                                                    closestCol = col.toLowerCase();
+                                                }
+                                            }
+                                        });
+                                    }
+                                    
+                                    if (closestCol) {
+                                        const td = tr.querySelector(`td[data-col="${closestCol}"]`);
+                                        if (td) {
+                                            td.classList.remove('text-gray-800');
+                                            td.classList.add('bg-yellow-100', 'text-yellow-800', 'border-x-2', 'border-yellow-300', 'shadow-sm');
+                                        }
+                                    }
+                                }
+                                
+                                // 2. Auto-Filter Rows if AI failed
+                                if (isFullyFiltered && hasAnyName && !queryTokens.includes(rowName)) {
+                                    tr.style.display = 'none';
+                                }
+                            }
+                        });
+                    }
+                    
+                    const ctx = document.getElementById(canvasId).getContext('2d');
+                    new Chart(ctx, {
+                        type: 'bar',
+                        data: {
+                            labels: labels,
+                            datasets: datasets
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            layout: {
+                                padding: {
+                                    top: 30
+                                }
+                            },
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                    grace: '10%'
+                                }
+                            },
+                            plugins: {
+                                legend: { display: datasets.length > 1 },
+                                title: {
+                                    display: true,
+                                    text: `${numericCols.map(c => c.toUpperCase()).join(' & ')} by ${categoryCol.toUpperCase()}`
+                                },
+                                datalabels: {
+                                    anchor: 'end',
+                                    align: 'top',
+                                    formatter: Math.round,
+                                    font: {
+                                        weight: 'bold'
+                                    },
+                                    color: '#4b5563'
+                                }
+                            }
+                        },
+                        plugins: [ChartDataLabels]
+                    });
+                }
+            });
+        });
+    </script>
+</div>
+{% endblock %}

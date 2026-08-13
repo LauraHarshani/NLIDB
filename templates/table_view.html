@@ -1,0 +1,289 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="mb-6 flex items-center justify-between">
+    <div class="flex items-center gap-4">
+        <a href="{{ url_for('manager') }}" class="text-gray-500 hover:text-blue-600 transition-colors bg-white border border-gray-200 px-3 py-1.5 rounded-lg shadow-sm">
+            <i class="fas fa-arrow-left mr-2"></i>Back
+        </a>
+        <div>
+            <h1 class="text-2xl font-bold text-gray-900 tracking-tight flex items-center gap-3">
+                {{ table.replace('u' ~ current_user_id ~ '_', '') if table.startswith('u' ~ current_user_id ~ '_') else table }}
+                {% if is_sample %}
+                <span class="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded font-medium">Sample Data (Read Only)</span>
+                {% endif %}
+            </h1>
+        </div>
+    </div>
+    <a href="{{ url_for('preview_table', table=table) }}" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm">
+        Preview & Export
+    </a>
+</div>
+
+<div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden mb-8">
+    <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse">
+            <thead>
+                <tr class="bg-gray-50 border-b border-gray-200">
+                    {% for col in cols %}
+                    <th class="px-6 py-4 text-xs font-bold text-gray-600 uppercase tracking-wider group relative">
+                        <div class="flex items-center justify-between">
+                            <span>{{ col }}</span>
+                            {% if not is_sample and col != 'id' %}
+                            <div class="flex items-center gap-2">
+                                <button onclick="document.getElementById('rename-{{ col }}').classList.toggle('hidden')" class="text-gray-400 hover:text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                {% if col in formulas %}
+                                <button onclick="editFormula('{{ col }}', '{{ formulas[col]|safe }}')" class="text-purple-400 hover:text-purple-600 opacity-0 group-hover:opacity-100 transition-opacity" title="Edit Formula">
+                                    <i class="fas fa-calculator text-xs"></i>
+                                </button>
+                                {% endif %}
+                            </div>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- Rename Form Dropdown -->
+                        {% if not is_sample and col != 'id' %}
+                        <div id="rename-{{ col }}" class="hidden absolute top-full left-0 mt-1 bg-white border border-gray-200 shadow-lg rounded-lg p-3 z-10 w-48">
+                            <form method="POST" action="{{ url_for('view_table', table=table) }}" class="flex flex-col gap-2">
+                                <input type="hidden" name="action" value="rename_column">
+                                <input type="hidden" name="old_col" value="{{ col }}">
+                                <input type="text" name="new_col" placeholder="New name" required class="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500">
+                                <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium py-1.5 rounded transition-colors">Rename</button>
+                            </form>
+                        </div>
+                        {% endif %}
+                    </th>
+                    {% endfor %}
+                    {% if not is_sample %}
+                    <th class="px-6 py-4 w-20 text-center group relative border-l border-gray-200 bg-blue-50/30">
+                        <div class="flex justify-center gap-2">
+                            <button onclick="document.getElementById('add-col-form').classList.toggle('hidden');" class="text-blue-500 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 w-7 h-7 rounded-full flex items-center justify-center transition-colors shadow-sm border border-blue-100" title="Add New Column">
+                                <i class="fas fa-plus text-xs"></i>
+                            </button>
+                            <button onclick="openFormulaModal();" class="text-purple-500 hover:text-purple-700 bg-purple-50 hover:bg-purple-100 w-7 h-7 rounded-full flex items-center justify-center transition-colors shadow-sm border border-purple-100" title="Calculate Column (Formula Builder)">
+                                <i class="fas fa-calculator text-xs"></i>
+                            </button>
+                        </div>
+                        
+                        <!-- Add Column Form Dropdown -->
+                        <div id="add-col-form" class="hidden absolute top-full right-0 mt-1 bg-white border border-gray-200 shadow-xl rounded-lg p-3 z-20 w-56 text-left font-normal">
+                            <h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Add Column</h4>
+                            <form method="POST" action="{{ url_for('view_table', table=table) }}" class="flex flex-col gap-2">
+                                <input type="hidden" name="action" value="add_column">
+                                <input type="text" name="new_col" placeholder="New column name" required class="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 text-gray-800">
+                                <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium py-1.5 rounded transition-colors shadow-sm">Add Column</button>
+                            </form>
+                        </div>
+                    </th>
+                    <th class="px-6 py-4 w-10"></th>
+                    {% endif %}
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% if not is_sample %}
+                <!-- Add Row Inline Form -->
+                <tr class="bg-blue-50/30">
+                    {% for col in cols %}
+                        <td class="px-6 py-3">
+                            {% if col == 'id' %}
+                            <span class="text-xs text-gray-400 italic">Auto</span>
+                            {% else %}
+                            <input type="text" name="col_{{ col }}" form="insert-form" placeholder="Add {{ col }}..." class="w-full px-2 py-1.5 text-sm border-b border-gray-300 bg-transparent focus:border-blue-500 focus:outline-none transition-colors">
+                            {% endif %}
+                        </td>
+                    {% endfor %}
+                    <td class="px-6 py-3 text-right">
+                        <form id="insert-form" method="POST" action="{{ url_for('view_table', table=table) }}" class="flex justify-end">
+                            <input type="hidden" name="action" value="insert_row">
+                            <button type="submit" class="text-blue-600 hover:text-blue-800 bg-blue-100 hover:bg-blue-200 w-7 h-7 rounded-full flex items-center justify-center transition-colors" title="Insert Row">
+                                <i class="fas fa-plus text-xs"></i>
+                            </button>
+                        </form>
+                    </td>
+                </tr>
+                {% endif %}
+
+                <!-- Existing Rows -->
+                {% for row in rows %}
+                {% set row_index = loop.index %}
+                <tr class="hover:bg-gray-50 transition-colors group" x-data="{ editing: false }">
+                    
+                    <!-- Display Mode -->
+                    {% for col in cols %}
+                    <td x-show="!editing" class="px-6 py-3 whitespace-nowrap text-sm text-gray-700">
+                        {% if col == 'id' %}
+                            {{ row_index }}
+                        {% else %}
+                            {{ row[col] }}
+                        {% endif %}
+                    </td>
+                    {% endfor %}
+                    
+                    {% if not is_sample %}
+                    <td x-show="!editing" class="px-6 py-3 text-right">
+                        <div class="flex items-center justify-end gap-2">
+                            <button type="button" @click="editing = true" class="text-blue-500 hover:text-blue-700 p-1 transition-colors" title="Edit Row">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <form method="POST" action="{{ url_for('view_table', table=table) }}" onsubmit="return confirm('Are you sure you want to completely delete this row from the database?');" class="inline">
+                                <input type="hidden" name="action" value="delete_row">
+                                <input type="hidden" name="row_id" value="{{ row['id'] }}">
+                                <button type="submit" class="text-red-500 hover:text-red-700 p-1 transition-colors" title="Delete Row">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </form>
+                        </div>
+                    </td>
+                    {% endif %}
+
+                    <!-- Edit Mode -->
+                    <td x-cloak x-show="editing" colspan="{{ cols|length + 1 }}" class="p-0">
+                        <form method="POST" action="{{ url_for('view_table', table=table) }}" class="flex w-full items-center bg-blue-50/50">
+                            <input type="hidden" name="action" value="update_row">
+                            <input type="hidden" name="row_id" value="{{ row['id'] }}">
+                            <table class="w-full text-left border-collapse">
+                                <tr>
+                                    {% for col in cols %}
+                                    <td class="px-6 py-2">
+                                        {% if col == 'id' %}
+                                        <span class="text-sm text-gray-500">{{ row_index }}</span>
+                                        {% else %}
+                                        <input type="text" name="col_{{ col }}" value="{{ row[col] }}" class="w-full px-2 py-1 text-sm border border-blue-300 rounded focus:ring-1 focus:ring-blue-500 bg-white">
+                                        {% endif %}
+                                    </td>
+                                    {% endfor %}
+                                    <td class="px-6 py-2 text-right w-24">
+                                        <div class="flex items-center justify-end gap-2">
+                                            <button type="button" @click="editing = false" class="text-gray-500 hover:text-gray-700 p-1" title="Cancel">
+                                                <i class="fas fa-times"></i>
+                                            </button>
+                                            <button type="submit" class="text-green-600 hover:text-green-800 p-1" title="Save Changes">
+                                                <i class="fas fa-check"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </table>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+                
+                {% if not rows %}
+                <tr>
+                    <td colspan="{{ cols|length + (1 if not is_sample else 0) }}" class="px-6 py-8 text-center text-gray-500">
+                        No data in this table yet. Add a row above!
+                    </td>
+                </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Formula Builder Modal -->
+<div id="formulaModal" class="hidden fixed inset-0 z-50 overflow-y-auto bg-gray-900 bg-opacity-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg border border-purple-100 overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-purple-50/30">
+            <h3 class="text-lg font-bold text-purple-700 flex items-center gap-2">
+                <i class="fas fa-calculator"></i> Advanced Formula Builder
+            </h3>
+            <button onclick="document.getElementById('formulaModal').classList.add('hidden')" class="text-gray-400 hover:text-gray-600 transition-colors">
+                <i class="fas fa-times text-lg"></i>
+            </button>
+        </div>
+        
+        <form method="POST" action="{{ url_for('view_table', table=table) }}" class="p-6">
+            <input type="hidden" name="action" value="calculate_column">
+            
+            <div class="mb-5">
+                <label class="block text-sm font-semibold text-gray-700 mb-1">New Column Name</label>
+                <input type="text" id="calc_new_col" name="new_col" placeholder="e.g. final_score" required class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-gray-800 shadow-sm">
+            </div>
+            
+            <div class="mb-5">
+                <label class="block text-sm font-semibold text-gray-700 mb-1">Formula</label>
+                <input type="text" id="formulaInput" name="expression" placeholder="e.g. (maths + bio) / 2" required class="w-full px-4 py-3 text-lg font-mono border-2 border-purple-200 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-purple-900 shadow-inner bg-purple-50/20" autocomplete="off">
+            </div>
+            
+            <!-- Keypad -->
+            <div class="bg-gray-50 p-4 rounded-xl border border-gray-200">
+                <div class="mb-3">
+                    <div class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Columns</div>
+                    <div class="flex flex-wrap gap-2">
+                        {% for c in cols %}
+                        {% if c != 'id' %}
+                        <button type="button" onclick="appendToFormula('{{ c }}')" class="bg-white hover:bg-purple-50 text-gray-700 hover:text-purple-700 border border-gray-300 px-3 py-1.5 rounded text-sm font-medium transition-colors shadow-sm">
+                            {{ c }}
+                        </button>
+                        {% endif %}
+                        {% endfor %}
+                    </div>
+                </div>
+                
+                <div class="flex gap-6 mt-4">
+                    <div class="flex-1">
+                        <div class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Numbers</div>
+                        <div class="grid grid-cols-3 gap-2">
+                            <button type="button" onclick="appendToFormula('7')" class="bg-white border-b-2 border-gray-300 hover:bg-gray-100 text-gray-700 py-2 rounded text-sm font-bold transition-colors shadow-sm">7</button>
+                            <button type="button" onclick="appendToFormula('8')" class="bg-white border-b-2 border-gray-300 hover:bg-gray-100 text-gray-700 py-2 rounded text-sm font-bold transition-colors shadow-sm">8</button>
+                            <button type="button" onclick="appendToFormula('9')" class="bg-white border-b-2 border-gray-300 hover:bg-gray-100 text-gray-700 py-2 rounded text-sm font-bold transition-colors shadow-sm">9</button>
+                            <button type="button" onclick="appendToFormula('4')" class="bg-white border-b-2 border-gray-300 hover:bg-gray-100 text-gray-700 py-2 rounded text-sm font-bold transition-colors shadow-sm">4</button>
+                            <button type="button" onclick="appendToFormula('5')" class="bg-white border-b-2 border-gray-300 hover:bg-gray-100 text-gray-700 py-2 rounded text-sm font-bold transition-colors shadow-sm">5</button>
+                            <button type="button" onclick="appendToFormula('6')" class="bg-white border-b-2 border-gray-300 hover:bg-gray-100 text-gray-700 py-2 rounded text-sm font-bold transition-colors shadow-sm">6</button>
+                            <button type="button" onclick="appendToFormula('1')" class="bg-white border-b-2 border-gray-300 hover:bg-gray-100 text-gray-700 py-2 rounded text-sm font-bold transition-colors shadow-sm">1</button>
+                            <button type="button" onclick="appendToFormula('2')" class="bg-white border-b-2 border-gray-300 hover:bg-gray-100 text-gray-700 py-2 rounded text-sm font-bold transition-colors shadow-sm">2</button>
+                            <button type="button" onclick="appendToFormula('3')" class="bg-white border-b-2 border-gray-300 hover:bg-gray-100 text-gray-700 py-2 rounded text-sm font-bold transition-colors shadow-sm">3</button>
+                            <button type="button" onclick="appendToFormula('0')" class="bg-white border-b-2 border-gray-300 hover:bg-gray-100 text-gray-700 py-2 rounded text-sm font-bold transition-colors shadow-sm col-span-2">0</button>
+                            <button type="button" onclick="appendToFormula('.')" class="bg-white border-b-2 border-gray-300 hover:bg-gray-100 text-gray-700 py-2 rounded text-sm font-bold transition-colors shadow-sm">.</button>
+                        </div>
+                    </div>
+                    
+                    <div class="flex-1">
+                        <div class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Operators</div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <button type="button" onclick="appendToFormula(' + ')" class="bg-purple-100 hover:bg-purple-200 text-purple-700 py-2 rounded text-sm font-bold transition-colors shadow-sm">+</button>
+                            <button type="button" onclick="appendToFormula(' - ')" class="bg-purple-100 hover:bg-purple-200 text-purple-700 py-2 rounded text-sm font-bold transition-colors shadow-sm">-</button>
+                            <button type="button" onclick="appendToFormula(' * ')" class="bg-purple-100 hover:bg-purple-200 text-purple-700 py-2 rounded text-sm font-bold transition-colors shadow-sm">&times;</button>
+                            <button type="button" onclick="appendToFormula(' / ')" class="bg-purple-100 hover:bg-purple-200 text-purple-700 py-2 rounded text-sm font-bold transition-colors shadow-sm">&divide;</button>
+                            <button type="button" onclick="appendToFormula(' ( ')" class="bg-purple-100 hover:bg-purple-200 text-purple-700 py-2 rounded text-sm font-bold transition-colors shadow-sm">(</button>
+                            <button type="button" onclick="appendToFormula(' ) ')" class="bg-purple-100 hover:bg-purple-200 text-purple-700 py-2 rounded text-sm font-bold transition-colors shadow-sm">)</button>
+                            <button type="button" onclick="appendToFormula(' % ')" class="bg-purple-100 hover:bg-purple-200 text-purple-700 py-2 rounded text-sm font-bold transition-colors shadow-sm">%</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mt-6 flex justify-end gap-3">
+                <button type="button" onclick="document.getElementById('formulaInput').value = ''" class="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors">
+                    Clear
+                </button>
+                <button type="submit" class="bg-purple-600 hover:bg-purple-700 text-white px-6 py-2 rounded-lg text-sm font-bold transition-colors shadow-md">
+                    Compute Column
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function appendToFormula(val) {
+    const input = document.getElementById('formulaInput');
+    input.value += val;
+    input.focus();
+}
+
+function editFormula(colName, formula) {
+    document.getElementById('calc_new_col').value = colName;
+    document.getElementById('formulaInput').value = formula;
+    document.getElementById('formulaModal').classList.remove('hidden');
+}
+
+function openFormulaModal() {
+    document.getElementById('calc_new_col').value = '';
+    document.getElementById('formulaInput').value = '';
+    document.getElementById('formulaModal').classList.remove('hidden');
+}
+</script>
+{% endblock %}

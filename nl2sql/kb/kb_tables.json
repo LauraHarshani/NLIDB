@@ -1,0 +1,17 @@
+{
+  "students": {
+    "description": "Student records: names, marks, admission/joined year.",
+    "synonyms": ["student", "pupil", "learner", "marks", "score", "grade", "joined year", "admission year"],
+    "is_system": false
+  },
+  "employees": {
+    "description": "Employee records: name, department, start year, salary.",
+    "synonyms": ["employee", "staff", "worker", "department", "team", "salary", "pay", "start year", "hired year"],
+    "is_system": false
+  },
+  "query_history": {
+    "description": "System table for storing app query logs. Not business data.",
+    "synonyms": ["history", "logs", "queries"],
+    "is_system": true
+  }
+}

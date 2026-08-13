@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="mb-6">
+    <h1 class="text-3xl font-bold text-gray-900 tracking-tight">Account Settings</h1>
+    <p class="text-gray-500 mt-1">Manage your profile and security preferences.</p>
+</div>
+
+<div class="w-full">
+    
+    <!-- Unified Profile Card -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col relative h-full">
+        <!-- Cover Photo -->
+        <div class="h-40 w-full relative" style="background-image: url('https://images.unsplash.com/photo-1597773150796-e5c14ebecbf5?fm=jpg&q=60&w=3000&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8NXx8ZGFyayUyMGJsdWUlMjBiYWNrZ3JvdW5kfGVufDB8fDB8fHww'); background-size: cover; background-position: center;">
+            <div class="absolute inset-0 bg-slate-900/30 mix-blend-multiply"></div>
+        </div>
+        
+        <!-- Profile Content -->
+        <div class="px-8 pb-6 flex-1 flex flex-col relative">
+            <!-- Avatar -->
+            <div class="w-20 h-20 rounded-full bg-gradient-to-br from-blue-100 to-indigo-100 text-blue-700 flex items-center justify-center font-bold text-3xl border-4 border-white shadow-sm uppercase absolute -top-10 left-8">
+                {{ current_user.name[0] if current_user.name else current_user.username[0] }}
+            </div>
+            
+            <div class="mt-12 mb-4">
+                <h2 class="text-2xl font-bold text-gray-900">{{ current_user.name if current_user.name else 'Database User' }}</h2>
+                <div class="flex items-center text-gray-500 text-sm mt-1 font-medium">
+                    <i class="fas fa-envelope mr-2 text-gray-400"></i> {{ current_user.username }}
+                </div>
+            </div>
+
+            <!-- Joined Date -->
+            <div class="absolute top-4 right-8 text-sm font-medium text-gray-500 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100 shadow-sm flex items-center">
+                <i class="far fa-calendar-alt mr-2 text-gray-400"></i> Joined {{ current_user.created_at }}
+            </div>
+
+            <!-- Side-by-Side Forms -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 border-t border-gray-100 pt-5 mt-2">
+                
+                <!-- Update Full Name -->
+                <div>
+                    <h3 class="text-lg font-bold text-gray-800 mb-4">Update Full Name</h3>
+                    <form method="POST" action="{{ url_for('settings') }}" class="space-y-3.5">
+                        <input type="hidden" name="action" value="update_name">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">New Full Name</label>
+                            <input type="text" name="name" required placeholder="Enter new full name" class="w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:bg-white transition-colors">
+                        </div>
+                        <button type="submit" class="w-auto bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-6 rounded-lg transition-colors shadow-sm mt-2">
+                            Save Name
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Update Password -->
+                <div>
+                    <h3 class="text-lg font-bold text-red-600 mb-4">Update Password</h3>
+                    <form method="POST" action="{{ url_for('settings') }}" class="space-y-3.5">
+                        <input type="hidden" name="action" value="update_password">
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Current Password</label>
+                            <input type="password" name="old_password" required placeholder="Enter current password" class="w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:bg-white transition-colors">
+                        </div>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">New Password</label>
+                                <input type="password" name="new_password" required placeholder="Enter new password" class="w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:bg-white transition-colors">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Confirm Password</label>
+                                <input type="password" name="confirm_password" required placeholder="Confirm new password" class="w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:bg-white transition-colors">
+                            </div>
+                        </div>
+                        
+                        <button type="submit" class="w-auto bg-red-600 hover:bg-red-700 text-white font-medium py-2 px-6 rounded-lg transition-colors shadow-sm mt-2">
+                            Change Password
+                        </button>
+                    </form>
+                </div>
+                
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
