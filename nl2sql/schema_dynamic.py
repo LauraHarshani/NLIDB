@@ -30,9 +30,9 @@ def get_live_schema(engine, user_id=None):
         if t.startswith("kb_"):
             continue
             
-        # If user_id is provided, only include tables with their prefix or the sample tables
+        # If user_id is provided, only include tables with their prefix
         if user_prefix:
-            if not (t.startswith(user_prefix) or t in ["employees", "students"]):
+            if not t.startswith(user_prefix):
                 continue
         
         # When displaying, we can optionally strip the prefix, but for SQL generation we need the real name

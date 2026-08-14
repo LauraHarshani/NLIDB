@@ -26,11 +26,7 @@
                         <h3 class="font-bold text-lg text-gray-800 group-hover:text-blue-800 transition-colors">
                             {{ table_name.replace('u' ~ current_user_id ~ '_', '') if table_name.startswith('u' ~ current_user_id ~ '_') else table_name }}
                         </h3>
-                        {% if table_name in ['employees', 'students'] %}
-                        <span class="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded">Sample</span>
-                        {% else %}
                         <i class="fas fa-chevron-right text-gray-400 group-hover:text-blue-500 transition-colors"></i>
-                        {% endif %}
                     </a>
                     
                     <div class="p-6">
@@ -46,7 +42,6 @@
                             {% endif %}
                         </div>
                         
-                        {% if table_name not in ['employees', 'students'] %}
                         <div class="flex justify-end gap-2 mt-5 pt-4 border-t border-gray-100">
                             <form method="POST" action="{{ url_for('manager') }}" class="inline m-0">
                                 <input type="hidden" name="action" value="rename_table">
@@ -64,7 +59,6 @@
                                 </button>
                             </form>
                         </div>
-                        {% endif %}
                     </div>
                 </div>
             {% endfor %}
