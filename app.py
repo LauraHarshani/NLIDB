@@ -296,9 +296,13 @@ def dashboard():
     recent_tables = tables[-3:] if len(tables) >= 3 else tables
     
     with engine.connect() as conn:
-        history_count = conn.execute(text(f"SELECT COUNT(*) FROM {HISTORY_TABLE}")).scalar()
+        history_count = conn.execute(
+            text(f"SELECT COUNT(*) FROM {HISTORY_TABLE} WHERE user_id = :uid"),
+            {"uid": current_user.id}
+        ).scalar()
         recent_queries_result = conn.execute(
-            text(f"SELECT nl_query, status FROM {HISTORY_TABLE} ORDER BY id DESC LIMIT 3")
+            text(f"SELECT nl_query, status FROM {HISTORY_TABLE} WHERE user_id = :uid ORDER BY id DESC LIMIT 3"),
+            {"uid": current_user.id}
         ).mappings().fetchall()
         recent_queries = [dict(r) for r in recent_queries_result]
         
